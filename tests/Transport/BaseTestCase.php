@@ -49,8 +49,9 @@ abstract class BaseTestCase extends TestCase {
 		$limit    = 104;
 		$options  = [
 			'max_bytes' => $limit,
+			'hooks'     => $this->getMaxBytesAssertionHooks(),
 		];
-		$response = Requests::get(httpbin('/bytes/325'), [], $this->getOptions($options));
+		$response = Requests::get(httpbin('/bytes/1000000'), array(), $this->getOptions($options));
 		$this->assertSame($limit, strlen($response->body));
 	}
 
@@ -58,6 +59,7 @@ abstract class BaseTestCase extends TestCase {
 		$limit    = 300;
 		$options  = [
 			'max_bytes' => $limit,
+			'hooks'     => $this->getMaxBytesAssertionHooks(),
 			'filename'  => tempnam(sys_get_temp_dir(), 'RLT'), // RequestsLibraryTest
 		];
 		$response = Requests::get(httpbin('/bytes/482'), [], $this->getOptions($options));
@@ -1170,5 +1172,31 @@ abstract class BaseTestCase extends TestCase {
 		$result = json_decode($request->body, true);
 		$this->assertSame(httpbin('/post'), $result['url']);
 		$this->assertSame(['test' => 'true', 'test2' => 'test'], $result['form']);
+	}
+
+	/**
+	 * Get a Hooks instance that asserts correct enforcement for max_bytes.
+	 *
+	 * @return Hooks
+	 */
+	protected function getMaxBytesAssertionHooks()
+	{
+		$hooks = new Hooks();
+
+		$hooks->register(
+			'request.progress',
+			function ($block, $size, $max_bytes) {
+				static $passed_max_bytes = false;
+				$this->assertFalse(
+					$passed_max_bytes,
+					'Failed asserting that body download was stopped as soon as max_bytes was reached.'
+				);
+				if ($size >= $max_bytes) {
+					$passed_max_bytes = true;
+				}
+			}
+		);
+
+		return $hooks;
 	}
 }
