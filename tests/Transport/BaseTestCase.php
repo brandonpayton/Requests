@@ -51,7 +51,7 @@ abstract class BaseTestCase extends TestCase {
 			'max_bytes' => $limit,
 			'hooks'     => $this->getMaxBytesAssertionHooks(),
 		];
-		$response = Requests::get(httpbin('/bytes/1000000'), array(), $this->getOptions($options));
+		$response = Requests::get(httpbin('/bytes/1000000'), [], $this->getOptions($options));
 		$this->assertSame($limit, strlen($response->body));
 	}
 
@@ -62,7 +62,7 @@ abstract class BaseTestCase extends TestCase {
 			'hooks'     => $this->getMaxBytesAssertionHooks(),
 			'filename'  => tempnam(sys_get_temp_dir(), 'RLT'), // RequestsLibraryTest
 		];
-		$response = Requests::get(httpbin('/bytes/482'), [], $this->getOptions($options));
+		$response = Requests::get(httpbin('/bytes/1000000'), [], $this->getOptions($options));
 		$this->assertEmpty($response->body);
 		$this->assertSame($limit, filesize($options['filename']));
 		unlink($options['filename']);
@@ -1179,8 +1179,7 @@ abstract class BaseTestCase extends TestCase {
 	 *
 	 * @return Hooks
 	 */
-	protected function getMaxBytesAssertionHooks()
-	{
+	protected function getMaxBytesAssertionHooks() {
 		$hooks = new Hooks();
 
 		$hooks->register(
