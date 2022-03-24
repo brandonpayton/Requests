@@ -111,6 +111,40 @@ class Response {
 		return in_array($code, [300, 301, 302, 303, 307], true) || $code > 307 && $code < 400;
 	}
 
+	// TODO: Improve description
+	/**
+	 * Is the response a redirect to upgrade the request from HTTP to HTTPS?
+	 *
+	 * @return bool True if redirect to upgrade to HTTPS, false if not.
+	 */
+	public function is_https_upgrade_redirect() {
+		$code = $this->status_code;
+
+		// Only consider 3xx status that would be used for HTTPS upgrade
+		if (!in_array($return->status_code, [301, 302, 307, 308], true)) {
+			return false;
+		}
+
+		// If the requested URL is not for HTTP, this cannot be an HTTPS upgrade
+		if (strncmp($url, 'http://', strlen('http://')) !== 0) {
+			return false;
+		}
+
+		if (!isset($return->headers['location'])) {
+			return false;
+		}
+
+		$location = $return->headers['location'];
+
+		// If the redirect target is not for HTTPS, this cannot be an HTTPS upgrade
+		if (strncmp($location, 'https://', strlen('https://')) !== 0) {
+			return false;
+		}
+
+		// If everything following the scheme matches, this is an HTTPS upgrade redirect
+		return substr($url, strlen('http://')) === substr($location, strlen('https://'))
+	}
+
 	/**
 	 * Throws an exception if the request was not successful
 	 *

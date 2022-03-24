@@ -785,34 +785,47 @@ class Requests {
 
 		$options['hooks']->dispatch('requests.before_redirect_check', [&$return, $req_headers, $req_data, $options]);
 
-		if ($return->is_redirect() && $options['follow_redirects'] === true) {
+		$perform_redirect = false;
+		if ($options['follow_https_upgrade_redirect'] === true &&
+			in_array($return->status_code, [301, 302, 307, 308], true) &&
+			isset($return->headers['location']) &&
+			strpos($return->headers['location'], 'https://') === 0 &&
+			strpos($url, 'http://') === 0 &&
+			substr($url, strlen('http://')) === substr($return->headers['location'], strlen('https://'))
+		) {
+			$perform_redirect = true;
+		} elseif ($return->is_redirect() && $options['follow_redirects'] === true) {
 			if (isset($return->headers['location']) && $options['redirected'] < $options['redirects']) {
-				if ($return->status_code === 303) {
-					$options['type'] = self::GET;
-				}
-
-				$options['redirected']++;
-				$location = $return->headers['location'];
-				if (strpos($location, 'http://') !== 0 && strpos($location, 'https://') !== 0) {
-					// relative redirect, for compatibility make it absolute
-					$location = Iri::absolutize($url, $location);
-					$location = $location->uri;
-				}
-
-				$hook_args = [
-					&$location,
-					&$req_headers,
-					&$req_data,
-					&$options,
-					$return,
-				];
-				$options['hooks']->dispatch('requests.before_redirect', $hook_args);
-				$redirected            = self::request($location, $req_headers, $req_data, $options['type'], $options);
-				$redirected->history[] = $return;
-				return $redirected;
+				$perform_redirect = true;
 			} elseif ($options['redirected'] >= $options['redirects']) {
 				throw new Exception('Too many redirects', 'toomanyredirects', $return);
 			}
+		}
+
+		if ($perform_redirect) {
+			if ($return->status_code === 303) {
+				$options['type'] = self::GET;
+			}
+
+			$options['redirected']++;
+			$location = $return->headers['location'];
+			if (strpos($location, 'http://') !== 0 && strpos($location, 'https://') !== 0) {
+				// relative redirect, for compatibility make it absolute
+				$location = Iri::absolutize($url, $location);
+				$location = $location->uri;
+			}
+
+			$hook_args = [
+				&$location,
+				&$req_headers,
+				&$req_data,
+				&$options,
+				$return,
+			];
+			$options['hooks']->dispatch('requests.before_redirect', $hook_args);
+			$redirected            = self::request($location, $req_headers, $req_data, $options['type'], $options);
+			$redirected->history[] = $return;
+			return $redirected;
 		}
 
 		$return->redirects = $options['redirected'];
